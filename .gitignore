@@ -1,0 +1,33 @@
+# Downloaded/raw data
+*.gz
+*.bed
+*.narrowPeak
+*.broadPeak
+*.3dg
+*.gtf
+tdg20k/
+
+# Large intermediate/output files
+*.rds
+*.RData
+*.h5
+*.hdf5
+*.tsv
+*.csv
+*.rnk
+
+# Generated figures
+*.pdf
+*.png
+*.svg
+
+# R / IDE
+.Rhistory
+.RData
+.Ruserdata
+.Rproj.user/
+*.Rproj
+
+# OS/editor
+.DS_Store
+*~

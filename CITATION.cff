@@ -1,0 +1,9 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite the associated manuscript."
+title: "Implicit hierarchical tensor decomposition of GSE303006 single-cell four-omics"
+type: software
+authors:
+  - family-names: "Taguchi"
+    given-names: "Yoshihiro"
+date-released: "2026-08-12"
+repository-code: "https://github.com/REPLACE_WITH_REPOSITORY"

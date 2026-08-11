@@ -1,0 +1,31 @@
+{
+  "primary_scripts": [
+    "00_install_packages.R",
+    "01_prepare_annotation_independent_inputs.R",
+    "02_build_M23_EP_and_3D_summary.R",
+    "03_finalize_EP_RNA_and_cell_QC.R",
+    "04_build_3D_HDF5.R",
+    "05_stage1_independent_K20.R",
+    "06_sign_only_stage1_K20.R",
+    "07_prepare_stage2_implicit.R",
+    "08_stage2_implicit_HOSVD.R",
+    "09_trace_core_to_original.R",
+    "10_celltype_replicate_annotation.R",
+    "11_core12_allEP_gene_rank.R",
+    "12_core12_mouse_GO_BP_GSEA.R",
+    "13_core12_GO_reduce_redundancy.R",
+    "14_core12_GO_process_gene_overlap.R",
+    "15_core12_original4modality_backprojection.R",
+    "16_core12_replicate_reproducibility.R",
+    "17_top100_CELLcomponent_effects.R",
+    "18_top100_publication_figure.R"
+  ],
+  "optional_scripts": [
+    "core12_top50_target_gene_summary.R"
+  ],
+  "static_malformed_double_bracket_hits": {},
+  "excluded_development_experiments": [
+    "06_align_stage1_K20.R (Procrustes alignment)",
+    "09_stage2_Kmixed_HOSVD.R (K-mixed Stage-2 HOSVD)"
+  ]
+}
