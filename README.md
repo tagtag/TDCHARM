@@ -1,5 +1,10 @@
 # Implicit hierarchical tensor decomposition of GSE303006 single-cell four-omics
 
+Y-h. Taguchi, Turki Turki
+
+https://doi.org/10.64898/2026.08.18.745447
+
+
 R code accompanying the manuscript:
 
 > **Implicit Hierarchical Tensor Decomposition of Single-Cell Four-Omics Data Reveals Cell-Type-Associated Enhancer–Promoter Regulatory Programs**
