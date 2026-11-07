@@ -7,7 +7,9 @@ https://doi.org/10.64898/2026.08.18.745447
 
 R code accompanying the manuscript:
 
-> **Implicit Hierarchical Tensor Decomposition of Single-Cell Four-Omics Data Reveals Cell-Type-Associated Enhancer–Promoter Regulatory Programs**
+> **Implicit Hierarchical Tensor Decomposition of Single-Cell Four-Omics Data Reveals Cell-Type-Linked Candidate Enhancer–Promoter-Associated Programs**
+
+**Versions.** This branch holds the revised version (scripts 19–27 and `run_revision.R` added in response to the reviewers; git tag `v2-revision`). The code exactly as it accompanied the first bioRxiv version (v1) is preserved under the git tag `v1-preprint`.
 
 The workflow analyzes the mouse-brain CHARM data set **GSE303006** using four
 modalities measured in the same cells:
@@ -53,12 +55,41 @@ R/
   16_core12_replicate_reproducibility.R
   17_top100_CELLcomponent_effects.R
   18_top100_publication_figure.R
+  revision_lib.R
+  19_stage1_stage2_energy_report.R
+  20_near_degenerate_rotation.R
+  21_replicate_subsets.R
+  21b_factor_matching.R
+  21c_core12_by_position.R
+  22_celltype_replicate_joint.R
+  22b_contrast_by_replicate.R
+  23_EP_link_benchmark.R
+  23b_CHARM_link_concordance.R
+  23c_CHARM_concordance_figure.R
+  24_modality_ablation.R
+  24b_ablation_factor_matching.R
+  25_EP_factor_recurrence.R
+  26_celltype_component_heatmap.R
+  27_method_schematic.R
 
 R_optional/
   core12_top50_target_gene_summary.R
 
 run_preprocessing.R
 run_analysis.R
+run_revision.R
+
+jobs/
+  download_inputs.sh
+  site_kyoto_icr.sh
+  submit_all.sh
+  tdcharm_step.sh
+
+tests/
+  make_synthetic_workdir.R
+
+tools/
+  build_supplementary_tables.py
 ```
 
 The Procrustes-alignment experiment and the K-mixed HOSVD experiment explored
@@ -85,6 +116,7 @@ Rscript R/00_install_packages.R
 Main R dependencies include:
 
 - data.table
+- R.utils (used by data.table to read .gz files)
 - Matrix
 - RSpectra
 - GenomicRanges
@@ -125,7 +157,26 @@ brain_ATAC_peaks.narrowPeak
 brain_H3K27ac_peaks.broadPeak
 ```
 
-Script 01 contains the MACS3 commands used to regenerate these files.
+Script 01 contains the MACS3 commands used to regenerate these files. If the
+peak files are absent (full recomputation from the GEO files), script 01 now
+runs MACS3 itself. MACS3 can live in its own conda environment
+(`conda create -n macs3 -c conda-forge -c bioconda python=3.12 macs3=3.1.0`); set
+`TDCHARM_MACS3` to the full path of the executable, or let `SITE=kyoto_icr`
+find `<conda base>/envs/macs3/bin/macs3` automatically. The MACS3 version, every command
+that was run and the resulting peak counts are written to
+`GSE303006_M23_MACS3_peak_calling_log.txt` in the working directory, and the
+MACS3 console output to `brain_ATAC_macs3_callpeak.log` and
+`brain_H3K27ac_macs3_callpeak.log`. Because peaks (and therefore the numbers
+of enhancers and E-P pairs) can differ slightly between MACS3 versions, the
+version recorded there should be reported in the Methods. Set
+`TDCHARM_RUN_MACS3=1` to force peak calling even when the files exist.
+
+`jobs/download_inputs.sh` downloads the GEO files listed above, the GENCODE
+vM23 annotation and the reconstructed 20-kb 3D structures
+(`GSE303006_brain.20k.tdg.tar.gz`, extracted to
+`tdg20k/geo_submit/brain_20k_tdg/`) into `$GSE303006_WORKDIR`. Run it on a node
+with internet access; files that are already complete are skipped, so it can
+be re-run after an interruption.
 
 ## Final preprocessing thresholds
 
@@ -254,6 +305,160 @@ The downstream workflow includes:
 7. direct back-projection into original RNA/ATAC/H3K27ac/3D measurements;
 8. replicate-wise reproducibility analysis;
 9. top-100 CELL-component generalization figure.
+
+## Running on a cluster with qsub
+
+`jobs/submit_all.sh` submits the workflow as a chain of four jobs; each job
+starts only after the previous one has finished successfully:
+
+```text
+synthetic      smoke test of 05-11, 17-18 and 19-27 on synthetic data
+preprocessing  run_preprocessing.R  (01-04)
+analysis       run_analysis.R       (05-18)
+revision       run_revision.R       (19-27)
+```
+
+SGE / Univa-Altair Grid Engine, PBS Pro and Torque are supported; the
+scheduler is detected automatically or set with `SCHEDULER=sge|pbspro|torque`.
+
+```bash
+# check the generated qsub commands first
+DRY_RUN=1 GSE303006_WORKDIR=/path/to/workdir \
+  TDCHARM_R_SETUP="module load R/4.3.3" bash jobs/submit_all.sh
+
+# submit
+GSE303006_WORKDIR=/path/to/workdir \
+  TDCHARM_R_SETUP="module load R/4.3.3" bash jobs/submit_all.sh
+```
+
+Site profiles set suitable defaults for a given system. For the Kyoto
+University ICR supercomputer (PBS Professional; SMALL queue for the short
+synthetic test, APC queue for the real data, 8 cores / 128 GB / 336 h per job):
+
+```bash
+SITE=kyoto_icr DRY_RUN=1 GSE303006_WORKDIR=/path/to/workdir bash jobs/submit_all.sh
+SITE=kyoto_icr GSE303006_WORKDIR=/path/to/workdir bash jobs/submit_all.sh
+```
+
+R is taken from the conda environment `r_env`: the profile looks up the conda
+installation on the login node and runs
+`source <conda>/etc/profile.d/conda.sh; conda activate r_env` inside each job
+(another environment: `TDCHARM_CONDA_ENV=name`; conda not on PATH:
+`CONDA_BASE=/path/to/miniconda3`). The R packages listed in
+`R/00_install_packages.R` must be installed in that environment. Queue names and
+limits can be checked with `qstat -Q`, `qstat -Qf APC` and `qstatmyjobs`.
+
+Main settings (environment variables): `SITE`, `QUEUE` (or `QUEUE_<step>`), `NCPU` [4], `MEM` [64G],
+`WALLTIME` [72:00:00], per-step overrides such as `MEM_revision=96G` or
+`WALLTIME_analysis=120:00:00`, `STEPS` (e.g. `STEPS="revision"` to submit only
+the revision step), `SYNTH_DIR` (synthetic test directory, outside the real
+working directory), `SGE_PE` [smp] and `SGE_MEM_RESOURCE` [h_vmem] for Grid
+Engine sites, and `EXTRA_QSUB_OPTS` for anything site-specific (project or
+group codes). `TDCHARM_R_SETUP` is executed inside each job before R starts
+(if `module` is not defined in batch shells, use e.g.
+`"source /etc/profile.d/modules.sh; module load R/4.3.3"`). All other
+`TDCHARM_*` variables set when calling the script are passed on to the jobs.
+
+Job logs are written to `$GSE303006_WORKDIR/qsub_logs/`; each log starts with
+the host, job ID, R version and the git state of the repository. On Grid
+Engine a failed step exits with status 100 so that the remaining jobs of the
+chain are held rather than started. `jobs/tdcharm_step.sh` can also be run
+directly with bash (set `TDCHARM_STEP`, `TDCHARM_REPO`, `GSE303006_WORKDIR`).
+
+A single script can be submitted on its own with `STEPS=script` and
+`TDCHARM_SCRIPT=<file under R/>`, for example (after downloading the CHARM
+Supplementary Tables workbook into the working directory):
+
+```bash
+SITE=kyoto_icr QUEUE=SMALL NCPU=4 MEM=32G WALLTIME=6:00:00 STEPS=script \
+  TDCHARM_SCRIPT=23b_CHARM_link_concordance.R \
+  GSE303006_WORKDIR=/path/to/workdir bash jobs/submit_all.sh
+```
+
+## Revision analyses
+
+Scripts 19-27 were added in response to the reviewers' comments. They run
+after the manuscript pipeline, in the same working directory:
+
+```bash
+Rscript run_preprocessing.R
+Rscript run_analysis.R
+Rscript run_revision.R
+```
+
+Each script writes its tables and figures with the prefix
+`GSE303006_M23_rev<NN>_` and saves its full console output as
+`GSE303006_M23_rev<NN>_..._log.txt` (or `..._log.txt`) next to them, including
+`sessionInfo()`. Shared functions are in `R/revision_lib.R`; its Stage-2
+implementation follows the same algebra as script 08, and scripts 20 and 24
+check it against the saved output of 08 (the check is printed in their logs).
+
+| Script | Reviewer comment | What it computes |
+|---|---|---|
+| `19_stage1_stage2_energy_report.R` | R1-6, R3-1 | Stage-1 variance retention and reconstruction error per modality (with cumulative explained fraction for k = 1..20); Stage-2 retained fraction and reconstruction error; Stage-2 and overall retention per modality; check that the degree-corrected mapping preserves each modality's norm. No decomposition is recomputed. |
+| `20_near_degenerate_rotation.R` | R1-2 | Blocks of nearly degenerate Stage-1 singular values (relative gap < 0.05); random (and 45-degree) rotations inside the blocks; Stage-2 recomputed; subspace angles, matched core and agreement of the core-#12 gene ranking. |
+| `21_replicate_subsets.R` | R1-3 | Scripts 05-08 re-run unchanged on each two-replicate subset (R1+R2, R1+R3, R2+R3) in sub-directories `rev21_*`; the same pre-specified core-selection rule in every run; gene rankings, GO-BP GSEA, cell-side statistics, and their agreement among the subsets and with the full data. |
+| `21b_factor_matching.R` | R1-3 | Direct comparison of the Stage-2 factor vectors of the full data and of each two-replicate subset (|correlation| of every E-P factor over all E-P pairs and of every cell factor over shared cells), independent of factor indices and of any selection rule. |
+| `21c_core12_by_position.R` | R1-3 | The core element at the position of manuscript core #12 (EP03, CELL03, K02, MOD01; each run's own factor ranks) analysed in the full data and in every subset: core value and its rank, gene rankings, GO-BP GSEA, and their agreement. |
+| `22_celltype_replicate_joint.R` | R1-4 | Cell-type x replicate composition; joint linear model (cell type, replicate, interaction, depth/QC covariates) with type-II partial eta^2 for every cell component (raw and rank-transformed loadings); within-cell-type replicate Kruskal-Wallis tests. |
+| `22b_contrast_by_replicate.R` | R1-4 | For the cell component of core #12 and its two contrasted cell types: loadings per cell type and replicate, the contrast within each replicate, pairwise replicate comparisons within each cell type, and the largest replicate shift relative to the between-type difference. |
+| `23_EP_link_benchmark.R` | R1-5 | Enrichment of core-#12-prioritized E-P pairs among supported links (ABC-like links from this data set; optional external link tables via `TDCHARM_EXTERNAL_LINKS`), stratified by enhancer-TSS distance (CMH test, AUPRC against a distance-matched permutation null). |
+| `23b_CHARM_link_concordance.R` | R1-5 | Concordance of core-#12-prioritized E-P pairs with the E-P links of the original CHARM study (Chen et al., Nature 2026, Supplementary Table 7; links in any cell type, intergenic only, and in the two contrasted cell types), in all candidate pairs and in pairs of genes linked by CHARM; same CMH/AUPRC procedures as 23, plus core-#12 scores of Ndnf/Lamp5-specific versus L3/4 IT-specific CHARM links. The workbook `41586_2026_10322_MOESM3_ESM.xlsx` is not redistributed: download it from the article page into the working directory (or set `TDCHARM_CHARM_SUPP`); otherwise the step is skipped. These links are predictions from the same data set, so this is a concordance analysis, not a validation. |
+| `23c_CHARM_concordance_figure.R` | R1-5 | Figure from the outputs of 23b: (a) core-#12 score percentile of candidate pairs linked by CHARM only in Ndnf/Lamp5, only in L3/4 IT, or only in other cell types; (b) Ndnf/Lamp5 and L3/4 IT links among the top 1,000 pairs on each side of the ranking, with expected counts and distance-stratified CMH odds ratios. |
+| `24_modality_ablation.R` | R1-1 | Stage 2 recomputed for each single modality and each leave-one-modality-out set; the same core-selection rule; agreement of gene rankings and GO with the four-modality result. |
+| `24b_ablation_factor_matching.R` | R1-1 | Direct comparison of the factor vectors of every modality variant of 24 with the four-modality factors (|correlation| of every E-P factor over all E-P pairs, accumulated block-wise, and of every cell factor), independent of any selection rule; the core element built from the factors matching core #12 in each variant (value, rank, gene ranking, GO-BP GSEA) and its agreement with core #12. Modality columns are sign-aligned to the core-#12 modality column over the shared modalities. |
+| `25_EP_factor_recurrence.R` | R2-4 | Frequency of E-P factors among the top-100 core elements; recurring (E-P, cell) factor combinations; gene ranking, GO and E-P distance for the most frequent E-P factors. |
+| `26_celltype_component_heatmap.R` | R2-2 | Cell type x cell component heatmap (mean standardized loading) for all cell components in the top-100 core elements. |
+| `27_method_schematic.R` | R2 minor 1 | Graphical summary of the method (draft schematic). |
+
+Figure revisions in the original scripts:
+
+- `15_...backprojection.R`: module-score heatmap (manuscript Fig. 3) uses a
+  higher-contrast diverging palette with a colour bar and labelled cell groups
+  (R3-3); also saved as PNG.
+- `16_...replicate_reproducibility.R`: replicate effect heatmap (Fig. 4) has a
+  colour bar and the effect values printed in the cells (R2 minor).
+- `18_top100_publication_figure.R`: the region label that overlapped the
+  sign-test summary (the "shadow") was moved (R2 minor).
+
+Pre-specified core-selection rule (scripts 21 and 24). In each run, the cell
+component whose 50 most positive and 50 most negative cells are most enriched
+for the two cell types that characterize core #12 (Inh Ndnf/Lamp5 and Ex L3/4
+IT) is selected, then the largest |core| element containing it. The labels are
+matched by regular expression against the cell-type column chosen by script 10;
+set `TDCHARM_GROUP_A` / `TDCHARM_GROUP_B` to exact labels if needed. Script 21
+reports whether the rule reproduces manuscript core #12 on the full data.
+
+Optional settings: `TDCHARM_RUN_GSEA=0` skips GSEA (21, 24, 25);
+`TDCHARM_RECOMPUTE=1` recomputes the cached subset runs of 21;
+`TDCHARM_N_ROT`, `TDCHARM_GAP_TOL` (20); `TDCHARM_N_PERM`, `TDCHARM_TOP_N`,
+`TDCHARM_ABC_THRESHOLD` (23); `TDCHARM_N_RECURRENT_EP` (25).
+
+### Supplementary Tables S1-S7
+
+After `run_revision.R`, the tables of the revised manuscript are assembled
+into one workbook (one sheet per table, each labelled with its source script
+and file; requires Python 3 with pandas and openpyxl):
+
+```bash
+python3 tools/build_supplementary_tables.py /path/to/workdir Supplementary_Tables_S1-S7.xlsx
+```
+
+Large outputs (per-gene scores, complete GO tables, factor correlation
+matrices, ABC-like scores of all pairs) stay in the working directory.
+
+### Synthetic test data
+
+`tests/make_synthetic_workdir.R` writes a small synthetic working directory
+with the same file names and object structures as the real intermediate
+files. It was used to check that scripts 05-11, 17-18 and 19-27 run end to
+end, that the shared Stage-2 implementation reproduces script 08 exactly,
+and that the shared gene score reproduces script 11. Numbers obtained from
+the synthetic data have no biological meaning.
+
+```bash
+Rscript tests/make_synthetic_workdir.R /tmp/tdcharm_synthetic
+```
 
 ## Reproducibility notes
 

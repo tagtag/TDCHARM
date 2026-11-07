@@ -320,9 +320,13 @@ draw_publication_figure <- function() {
         col = "grey35"
     )
 
+    # Revision (Reviewer 2, minor comment on Section 2.3): this label
+    # previously sat at y = 0.12, directly behind the summary text,
+    # and appeared as a grey "shadow" under the sign-test line. It is
+    # moved above the summary, still below the y = x line.
     text(
-        x = 0.70,
-        y = 0.12,
+        x = 0.72,
+        y = 0.40,
         labels =
             expression(
                 epsilon^2[replicate] >

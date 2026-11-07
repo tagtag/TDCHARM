@@ -2167,107 +2167,88 @@ heat_plot <- pmax(
     -clip_lim
 )
 
+# Revision (Reviewer 3, Comment 3; Reviewer 2, minor comment on
+# colour scales): higher-contrast diverging palette (RdBu), explicit
+# colour bar, separation of the positive / negative module rows and
+# labels for the two cell groups. Saved as PDF and PNG.
 heat_colors <- hcl.colors(
     101,
-    palette = "Blue-Red 3",
+    palette = "RdBu",
     rev = TRUE
 )
 
+draw_module_heatmap <- function() {
+
+    nr <- nrow(heat_plot)
+    nc <- ncol(heat_plot)
+    n_pos <- length(pos_cells)
+
+    par(mar = c(4, 15, 5, 8))
+
+    image(
+        x = seq_len(nc),
+        y = seq_len(nr),
+        z = t(heat_plot[nr:1, , drop = FALSE]),
+        col = heat_colors,
+        zlim = c(-clip_lim, clip_lim),
+        axes = FALSE,
+        xlab = "Cells ordered by decreasing CELL03 loading",
+        ylab = "",
+        main = ""
+    )
+
+    axis(2, at = seq_len(nr), labels = rev(rownames(heat_plot)),
+         las = 2, cex.axis = 0.8, tick = FALSE)
+
+    # boundary between the top-50 and bottom-50 cells
+    abline(v = n_pos + 0.5, lwd = 2.5, col = "black")
+    # boundary between positive-module and negative-module rows
+    abline(h = nr / 2 + 0.5, lwd = 2.5, col = "black")
+    box()
+
+    mtext(sprintf("CELL03-positive cells (top %d)", n_pos), side = 3,
+          line = 0.4, at = (n_pos + 1) / 2, cex = 0.85, font = 2)
+    mtext(sprintf("CELL03-negative cells (bottom %d)", nc - n_pos), side = 3,
+          line = 0.4, at = n_pos + (nc - n_pos + 1) / 2, cex = 0.85, font = 2)
+    mtext("Core #12 module scores in CELL03-positive and -negative cells",
+          side = 3, line = 2.4, cex = 1)
+
+    # colour bar
+    usr <- par("usr")
+    xr <- usr[2] - usr[1]
+    x0 <- usr[2] + 0.02 * xr
+    x1 <- usr[2] + 0.04 * xr
+    yy <- seq(usr[3], usr[4], length.out = length(heat_colors) + 1)
+    op <- par(xpd = NA)
+    rect(x0, yy[-length(yy)], x1, yy[-1], col = heat_colors, border = NA)
+    rect(x0, usr[3], x1, usr[4])
+    at <- seq(-floor(clip_lim), floor(clip_lim), by = 1)
+    ya <- usr[3] + (at + clip_lim) / (2 * clip_lim) * (usr[4] - usr[3])
+    segments(x1, ya, x1 + 0.005 * xr, ya)
+    text(x1 + 0.008 * xr, ya, labels = format(at), adj = c(0, 0.5), cex = 0.75)
+    text((x0 + x1) / 2, usr[4] + 0.04 * (usr[4] - usr[3]),
+         "standardized\nscore (z)", adj = c(0.5, 0), cex = 0.75)
+    text(x1 + 0.008 * xr, usr[3] - 0.06 * (usr[4] - usr[3]),
+         sprintf("clipped at \u00b1%.1f", clip_lim), adj = c(0, 1), cex = 0.6,
+         col = "grey30")
+    par(op)
+}
+
 pdf(
-    paste0(
-        OUT_PREFIX,
-        "_module_score_heatmap.pdf"
-    ),
+    paste0(OUT_PREFIX, "_module_score_heatmap.pdf"),
     width = 14,
     height = 6
 )
+draw_module_heatmap()
+dev.off()
 
-par(
-    mar = c(
-        7,
-        15,
-        4,
-        2
-    )
+png(
+    paste0(OUT_PREFIX, "_module_score_heatmap.png"),
+    width = 14 * 300,
+    height = 6 * 300,
+    res = 300
 )
-
-image(
-    x =
-        seq_len(
-            ncol(
-                heat_plot
-            )
-        ),
-
-    y =
-        seq_len(
-            nrow(
-                heat_plot
-            )
-        ),
-
-    z =
-        t(
-            heat_plot[
-                nrow(
-                    heat_plot
-                ):1,
-                ,
-                drop = FALSE
-            ]
-        ),
-
-    col =
-        heat_colors,
-
-    zlim =
-        c(
-            -clip_lim,
-            clip_lim
-        ),
-
-    axes =
-        FALSE,
-
-    xlab =
-        "Cells ordered by decreasing CELL03 loading",
-
-    ylab =
-        "",
-
-    main =
-        "Core #12 modules in CELL03 positive/negative cells"
-)
-
-axis(
-    2,
-    at =
-        seq_len(
-            nrow(
-                heat_plot
-            )
-        ),
-    labels =
-        rev(
-            rownames(
-                heat_plot
-            )
-        ),
-    las = 2,
-    cex.axis = 0.8
-)
-
-# mark boundary between top50 and bottom50
-abline(
-    v =
-        length(pos_cells) +
-        0.5,
-    lty = 2,
-    lwd = 2
-)
-
-box()
-
+draw_module_heatmap()
 dev.off()
 
 

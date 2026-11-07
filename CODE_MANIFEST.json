@@ -27,5 +27,34 @@
   "excluded_development_experiments": [
     "06_align_stage1_K20.R (Procrustes alignment)",
     "09_stage2_Kmixed_HOSVD.R (K-mixed Stage-2 HOSVD)"
+  ],
+  "revision_scripts": [
+    "revision_lib.R",
+    "19_stage1_stage2_energy_report.R",
+    "20_near_degenerate_rotation.R",
+    "21_replicate_subsets.R",
+    "21b_factor_matching.R",
+    "21c_core12_by_position.R",
+    "22_celltype_replicate_joint.R",
+    "22b_contrast_by_replicate.R",
+    "23_EP_link_benchmark.R",
+    "23b_CHARM_link_concordance.R",
+    "23c_CHARM_concordance_figure.R",
+    "24_modality_ablation.R",
+    "24b_ablation_factor_matching.R",
+    "25_EP_factor_recurrence.R",
+    "26_celltype_component_heatmap.R",
+    "27_method_schematic.R"
+  ],
+  "revision_runner": "run_revision.R",
+  "supplementary_tables": "tools/build_supplementary_tables.py",
+  "tests": [
+    "tests/make_synthetic_workdir.R"
+  ],
+  "cluster_jobs": [
+    "jobs/download_inputs.sh",
+    "jobs/submit_all.sh",
+    "jobs/tdcharm_step.sh",
+    "jobs/site_kyoto_icr.sh"
   ]
 }

@@ -1091,96 +1091,84 @@ effect_mat_plot <- pmax(
     -clip
 )
 
+# Revision (Reviewer 2, minor comment on Fig. 4): explicit colour
+# bar with sign and magnitude, effect values printed in each cell,
+# higher-contrast diverging palette (RdBu). Saved as PDF and PNG.
 cols <- hcl.colors(
     101,
-    "Blue-Red 3",
+    "RdBu",
     rev = TRUE
 )
 
+draw_effect_heatmap <- function() {
+
+    nr <- nrow(effect_mat_plot)
+    nc <- ncol(effect_mat_plot)
+
+    par(mar = c(5, 18, 4, 8))
+
+    image(
+        x = seq_len(nc),
+        y = seq_len(nr),
+        z = t(effect_mat_plot[nr:1, , drop = FALSE]),
+        col = cols,
+        zlim = c(-1, 1),
+        axes = FALSE,
+        xlab = "Replicate",
+        ylab = "",
+        main = "Replicate-wise rank-biserial effects"
+    )
+
+    axis(1, at = seq_len(nc), labels = colnames(effect_mat_plot), tick = FALSE)
+    axis(2, at = seq_len(nr), labels = rev(rownames(effect_mat_plot)),
+         las = 2, cex.axis = 0.65, tick = FALSE)
+    abline(v = seq(0.5, nc + 0.5), h = seq(0.5, nr + 0.5), col = "white", lwd = 0.8)
+
+    vals <- effect_mat[nr:1, , drop = FALSE]
+    for (i in seq_len(nr)) for (j in seq_len(nc)) {
+        v <- vals[i, j]
+        if (is.finite(v)) {
+            text(j, i, sprintf("%.2f", v), cex = 0.55,
+                 col = if (abs(v) > 0.6) "white" else "black")
+        }
+    }
+    box()
+
+    usr <- par("usr")
+    xr <- usr[2] - usr[1]
+    x0 <- usr[2] + 0.05 * xr
+    x1 <- usr[2] + 0.10 * xr
+    yy <- seq(usr[3], usr[4], length.out = length(cols) + 1)
+    op <- par(xpd = NA)
+    rect(x0, yy[-length(yy)], x1, yy[-1], col = cols, border = NA)
+    rect(x0, usr[3], x1, usr[4])
+    at <- c(-1, -0.5, 0, 0.5, 1)
+    ya <- usr[3] + (at + 1) / 2 * (usr[4] - usr[3])
+    segments(x1, ya, x1 + 0.015 * xr, ya)
+    text(x1 + 0.025 * xr, ya, labels = format(at), adj = c(0, 0.5), cex = 0.7)
+    text(x1 + 0.17 * xr, (usr[3] + usr[4]) / 2,
+         "rank-biserial (CELL03-positive vs -negative cells)",
+         srt = 90, adj = c(0.5, 0.5), cex = 0.65)
+    par(op)
+}
+
+pdf_h <- max(8, 0.35 * nrow(effect_mat_plot) + 2)
+
 pdf(
-    paste0(
-        OUT_PREFIX,
-        "_effect_heatmap.pdf"
-    ),
+    paste0(OUT_PREFIX, "_effect_heatmap.pdf"),
     width = 8,
-    height = max(
-        8,
-        0.35 *
-            nrow(effect_mat_plot) +
-            2
-    )
+    height = pdf_h
 )
+draw_effect_heatmap()
+dev.off()
 
-par(
-    mar = c(
-        5,
-        18,
-        4,
-        2
-    )
+png(
+    paste0(OUT_PREFIX, "_effect_heatmap.png"),
+    width = 8 * 300,
+    height = pdf_h * 300,
+    res = 300
 )
-
-image(
-    x = seq_len(
-        ncol(
-            effect_mat_plot
-        )
-    ),
-    y = seq_len(
-        nrow(
-            effect_mat_plot
-        )
-    ),
-    z = t(
-        effect_mat_plot[
-            nrow(
-                effect_mat_plot
-            ):1,
-            ,
-            drop = FALSE
-        ]
-    ),
-    col = cols,
-    zlim = c(
-        -1,
-        1
-    ),
-    axes = FALSE,
-    xlab = "",
-    ylab = "",
-    main = "Replicate-wise rank-biserial effects"
-)
-
-axis(
-    1,
-    at = seq_len(
-        ncol(
-            effect_mat_plot
-        )
-    ),
-    labels = colnames(
-        effect_mat_plot
-    )
-)
-
-axis(
-    2,
-    at = seq_len(
-        nrow(
-            effect_mat_plot
-        )
-    ),
-    labels = rev(
-        rownames(
-            effect_mat_plot
-        )
-    ),
-    las = 2,
-    cex.axis = 0.65
-)
-
-box()
-
+draw_effect_heatmap()
 dev.off()
 
 
